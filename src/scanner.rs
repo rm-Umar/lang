@@ -1,11 +1,12 @@
+use Object::*;
 use TokenType::*;
 
 pub struct Scanner {
     source: String,
     tokens: Vec<Token>,
-    start: u64,
-    current: u64,
-    line: u64,
+    start: usize,
+    current: usize,
+    line: usize,
 }
 
 impl Scanner {
@@ -97,6 +98,7 @@ impl Scanner {
             }
             ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
+            '"' => self.string()?,
             _ => {
                 return Err(format!(
                     "unrecognized character at line: {} {}",
@@ -107,18 +109,36 @@ impl Scanner {
         Ok(())
     }
 
+    fn string(self: &mut Self) -> Result<(), String> {
+        while self.peek() != '"' && !self.is_at_end() {
+            if self.peek() == '\n' {
+                self.line += 1;
+            }
+            self.advance();
+        }
+
+        if self.is_at_end() {
+            return Err(format!("Unterminated string at line: {}", self.line));
+        }
+
+        self.advance();
+        let value = &self.source[self.start + 1..self.current - 1];
+        self.add_token_literals(Str, Some(StrValue(value.to_string())));
+        Ok(())
+    }
+
     fn peek(self: &Self) -> char {
         if self.is_at_end() {
             return '\0';
         }
-        self.source.as_bytes()[self.current as usize] as char
+        self.source.chars().nth(self.current).unwrap()
     }
 
     fn char_match(self: &mut Self, ch: char) -> bool {
         if self.is_at_end() {
             return false;
         }
-        if self.source.as_bytes()[self.current as usize] as char != ch {
+        if self.source.chars().nth(self.current).unwrap() != ch {
             return false;
         } else {
             self.current += 1;
@@ -127,9 +147,9 @@ impl Scanner {
     }
 
     fn advance(self: &mut Self) -> char {
-        let c = self.source.as_bytes()[self.current as usize];
+        let c = self.source.chars().nth(self.current).unwrap();
         self.current += 1;
-        c as char
+        c
     }
 
     fn add_token(self: &mut Self, token_type: TokenType) {
@@ -137,14 +157,14 @@ impl Scanner {
     }
 
     fn add_token_literals(self: &mut Self, token_type: TokenType, literal: Option<Object>) {
-        let mut text = "".to_string();
-        let bytes = self.source.as_bytes();
-        for i in self.start..self.current {
-            text.push(bytes[i as usize] as char);
-        }
+        let mut lex = "".to_string();
+        let _lit = self.source[self.start..self.current]
+            .chars()
+            .map(|ch| lex.push(ch));
+
         self.tokens.push(Token {
             token_type: token_type,
-            lexeme: text,
+            lexeme: lex,
             literal: literal,
             line_number: self.line,
         });
@@ -188,13 +208,13 @@ pub enum TokenType {
     Khali,  // NIL
     Rakho,  // VAR
     Jabtak, // WHILE
-    Juz,    // FUNCTION
+    Kaam,   // FUNCTION
     Ghalat, // FALSE
     Sahi,   // TRUE
-    Agr,    // IF
+    Agar,   // IF
     Warna,  // ELSE
     Ya,     // OR
-    Sath,   // AND or maybe `aur` not final.
+    Aur,    // AND
 }
 
 impl std::fmt::Display for TokenType {
@@ -216,7 +236,7 @@ pub struct Token {
     token_type: TokenType,
     lexeme: String,
     literal: Option<Object>,
-    line_number: u64,
+    line_number: usize,
 }
 
 impl Token {
@@ -224,7 +244,7 @@ impl Token {
         token_type: TokenType,
         lexeme: String,
         literal: Option<Object>,
-        line_number: u64,
+        line_number: usize,
     ) -> Self {
         Self {
             token_type,
@@ -233,10 +253,6 @@ impl Token {
             line_number,
         }
     }
-
-    pub fn to_string(self: &Self) -> String {
-        format!("{} {} {:?}", self.token_type, self.lexeme, self.literal)
-    }
 }
 
 #[cfg(test)]
@@ -244,7 +260,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn one_char_token() {
+    fn test_one_char_token() {
         let source = "( { * + - . , } ) ;";
         let mut scanner = Scanner::new(source);
         scanner.scan_tokens();
@@ -262,7 +278,7 @@ mod tests {
     }
 
     #[test]
-    fn two_char_token() {
+    fn test_two_char_token() {
         let source = "! != = == > >= < <=";
         let mut scanner = Scanner::new(source);
         scanner.scan_tokens();
@@ -274,5 +290,17 @@ mod tests {
         assert_eq!(scanner.tokens[5].token_type, GreaterEqual);
         assert_eq!(scanner.tokens[6].token_type, Less);
         assert_eq!(scanner.tokens[7].token_type, LessEqual);
+    }
+
+    #[test]
+    fn test_string_literals() {
+        let source = "\"This is a string\"";
+        let mut scanner = Scanner::new(source);
+        scanner.scan_tokens();
+        assert_eq!(scanner.tokens[0].token_type, Str);
+        match scanner.tokens[0].literal.as_ref().unwrap() {
+            StrValue(val) => assert_eq!(val, "This is a string"),
+            _ => panic!("Incorrect literal type"),
+        }
     }
 }
