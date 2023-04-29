@@ -101,7 +101,7 @@ impl Scanner {
             '"' => self.string()?,
             c => {
                 if is_digit(c) {
-                    self.number();
+                    self.number()?;
                 } else {
                     return Err(format!(
                         "unrecognized character at line: {} {}",
@@ -168,6 +168,7 @@ impl Scanner {
         if self.is_at_end() {
             return false;
         }
+
         if self.source.chars().nth(self.current).unwrap() != ch {
             return false;
         } else {
@@ -296,7 +297,7 @@ mod tests {
     fn test_one_char_token() {
         let source = "( { * + - . , } ) ;";
         let mut scanner = Scanner::new(source);
-        scanner.scan_tokens();
+        scanner.scan_tokens().expect("failed to scan tokens");
         assert_eq!(scanner.tokens[0].token_type, LeftParen);
         assert_eq!(scanner.tokens[1].token_type, LeftBrace);
         assert_eq!(scanner.tokens[2].token_type, Star);
@@ -314,7 +315,7 @@ mod tests {
     fn test_two_char_token() {
         let source = "! != = == > >= < <=";
         let mut scanner = Scanner::new(source);
-        scanner.scan_tokens();
+        scanner.scan_tokens().expect("failed to scan tokens");
         assert_eq!(scanner.tokens[0].token_type, Bang);
         assert_eq!(scanner.tokens[1].token_type, BangEqual);
         assert_eq!(scanner.tokens[2].token_type, Equal);
@@ -329,7 +330,7 @@ mod tests {
     fn test_string_literal() {
         let source = "\"This is a string\"";
         let mut scanner = Scanner::new(source);
-        scanner.scan_tokens();
+        scanner.scan_tokens().expect("failed to scan tokens");
         assert_eq!(scanner.tokens[0].token_type, Str);
         match scanner.tokens[0].literal.as_ref().unwrap() {
             StrValue(val) => assert_eq!(val, "This is a string"),
@@ -341,7 +342,7 @@ mod tests {
     fn test_number_literal() {
         let source = "123.12 \n 5 \n 0.06";
         let mut scanner = Scanner::new(source);
-        scanner.scan_tokens();
+        scanner.scan_tokens().expect("failed to scan tokens");
         assert_eq!(scanner.tokens[0].token_type, Number);
         assert_eq!(scanner.tokens[1].token_type, Number);
         assert_eq!(scanner.tokens[2].token_type, Number);
