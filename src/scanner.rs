@@ -99,13 +99,36 @@ impl Scanner {
             ' ' | '\r' | '\t' => {}
             '\n' => self.line += 1,
             '"' => self.string()?,
-            _ => {
-                return Err(format!(
-                    "unrecognized character at line: {} {}",
-                    c, self.line
-                ))
+            c => {
+                if is_digit(c) {
+                    self.number();
+                } else {
+                    return Err(format!(
+                        "unrecognized character at line: {} {}",
+                        c, self.line
+                    ));
+                }
             }
         }
+        Ok(())
+    }
+
+    fn number(self: &mut Self) -> Result<(), String> {
+        while is_digit(self.peek()) {
+            self.advance();
+        }
+
+        if self.peek() == '.' && is_digit(self.peek_next()) {
+            self.advance();
+
+            while is_digit(self.peek()) {
+                self.advance();
+            }
+        }
+        let value = self.source[self.start..self.current]
+            .parse::<f64>()
+            .unwrap();
+        self.add_token_literal(Number, Some(FValue(value)));
         Ok(())
     }
 
@@ -123,7 +146,7 @@ impl Scanner {
 
         self.advance();
         let value = &self.source[self.start + 1..self.current - 1];
-        self.add_token_literals(Str, Some(StrValue(value.to_string())));
+        self.add_token_literal(Str, Some(StrValue(value.to_string())));
         Ok(())
     }
 
@@ -132,6 +155,13 @@ impl Scanner {
             return '\0';
         }
         self.source.chars().nth(self.current).unwrap()
+    }
+
+    fn peek_next(self: &Self) -> char {
+        if self.current + 1 > self.source.len() {
+            return '\0';
+        }
+        self.source.chars().nth(self.current + 1).unwrap()
     }
 
     fn char_match(self: &mut Self, ch: char) -> bool {
@@ -153,10 +183,10 @@ impl Scanner {
     }
 
     fn add_token(self: &mut Self, token_type: TokenType) {
-        self.add_token_literals(token_type, None);
+        self.add_token_literal(token_type, None);
     }
 
-    fn add_token_literals(self: &mut Self, token_type: TokenType, literal: Option<Object>) {
+    fn add_token_literal(self: &mut Self, token_type: TokenType, literal: Option<Object>) {
         let mut lex = "".to_string();
         let _lit = self.source[self.start..self.current]
             .chars()
@@ -225,7 +255,6 @@ impl std::fmt::Display for TokenType {
 
 #[derive(Debug, Clone)]
 pub enum Object {
-    NumValue(i64),
     FValue(f64),
     StrValue(String),
     IdenValue(String),
@@ -253,6 +282,10 @@ impl Token {
             line_number,
         }
     }
+}
+
+fn is_digit(ch: char) -> bool {
+    ch as u8 >= '0' as u8 && ch as u8 <= '9' as u8
 }
 
 #[cfg(test)]
@@ -293,13 +326,38 @@ mod tests {
     }
 
     #[test]
-    fn test_string_literals() {
+    fn test_string_literal() {
         let source = "\"This is a string\"";
         let mut scanner = Scanner::new(source);
         scanner.scan_tokens();
         assert_eq!(scanner.tokens[0].token_type, Str);
         match scanner.tokens[0].literal.as_ref().unwrap() {
             StrValue(val) => assert_eq!(val, "This is a string"),
+            _ => panic!("Incorrect literal type"),
+        }
+    }
+
+    #[test]
+    fn test_number_literal() {
+        let source = "123.12 \n 5 \n 0.06";
+        let mut scanner = Scanner::new(source);
+        scanner.scan_tokens();
+        assert_eq!(scanner.tokens[0].token_type, Number);
+        assert_eq!(scanner.tokens[1].token_type, Number);
+        assert_eq!(scanner.tokens[2].token_type, Number);
+
+        match scanner.tokens[0].literal.as_ref().unwrap() {
+            FValue(val) => assert_eq!(*val, 123.12),
+            _ => panic!("Incorrect literal type"),
+        }
+
+        match scanner.tokens[1].literal.as_ref().unwrap() {
+            FValue(val) => assert_eq!(*val, 5.0),
+            _ => panic!("Incorrect literal type"),
+        }
+
+        match scanner.tokens[2].literal.as_ref().unwrap() {
+            FValue(val) => assert_eq!(*val, 0.06),
             _ => panic!("Incorrect literal type"),
         }
     }
