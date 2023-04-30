@@ -6,8 +6,6 @@ maanlo naam = "Ali";
 maanlo jammat = 8;
 
 // ya ik comment hy jo ky ignore hojy ga.
-// need to decide function return format.
-
 // function kya_ali() -> boolean 
 kaam kya_ali() {
     agar naam == "Ali" {
