@@ -222,7 +222,7 @@ impl Scanner {
     }
 
     fn add_token_literal(self: &mut Self, token_type: TokenType, literal: Option<Object>) {
-        let mut lex = self.source[self.start..self.current].chars().collect();
+        let lex = self.source[self.start..self.current].chars().collect();
         self.tokens.push(Token {
             token_type: token_type,
             lexeme: lex,
@@ -288,7 +288,6 @@ impl std::fmt::Display for TokenType {
 pub enum Object {
     FValue(f64),
     StrValue(String),
-    IdenValue(String),
 }
 
 #[derive(Debug, Clone)]
