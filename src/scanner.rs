@@ -1,12 +1,30 @@
+use std::collections::HashMap;
 use Object::*;
 use TokenType::*;
 
+fn get_keywords() -> HashMap<&'static str, TokenType> {
+    HashMap::from([
+        ("wapis", Wapis),   // RETURN
+        ("likho", Likho),   // PRINT
+        ("khali", Khali),   // NIL
+        ("maanlo", Maanlo), // VAR
+        ("jabtak", Jabtak), // WHILE
+        ("kaam", Kaam),     // FUNCTION
+        ("ghalat", Ghalat), // FALSE
+        ("sahi", Sahi),     // TRUE
+        ("agar", Agar),     // IF
+        ("warna", Warna),   // ELSE
+        ("ya", Ya),         // OR
+        ("aur", Aur),       // AND
+    ])
+}
 pub struct Scanner {
     source: String,
     tokens: Vec<Token>,
     start: usize,
     current: usize,
     line: usize,
+    keywords: HashMap<&'static str, TokenType>,
 }
 
 impl Scanner {
@@ -17,6 +35,7 @@ impl Scanner {
             start: 0,
             current: 0,
             line: 1,
+            keywords: get_keywords(),
         }
     }
 
@@ -102,6 +121,8 @@ impl Scanner {
             c => {
                 if is_digit(c) {
                     self.number()?;
+                } else if is_alpha(c) {
+                    self.identifier()?;
                 } else {
                     return Err(format!(
                         "unrecognized character at line: {} {}",
@@ -109,6 +130,19 @@ impl Scanner {
                     ));
                 }
             }
+        }
+        Ok(())
+    }
+
+    fn identifier(self: &mut Self) -> Result<(), String> {
+        while is_alpha_numeric(self.peek()) {
+            self.advance();
+        }
+        let text = &self.source[self.start..self.current];
+        if let Some(&ref token_type) = self.keywords.get(text) {
+            self.add_token(token_type.clone());
+        } else {
+            self.add_token(Identifier);
         }
         Ok(())
     }
@@ -188,11 +222,7 @@ impl Scanner {
     }
 
     fn add_token_literal(self: &mut Self, token_type: TokenType, literal: Option<Object>) {
-        let mut lex = "".to_string();
-        let _lit = self.source[self.start..self.current]
-            .chars()
-            .map(|ch| lex.push(ch));
-
+        let mut lex = self.source[self.start..self.current].chars().collect();
         self.tokens.push(Token {
             token_type: token_type,
             lexeme: lex,
@@ -237,7 +267,7 @@ pub enum TokenType {
     Wapis,  // RETURN
     Likho,  // PRINT
     Khali,  // NIL
-    Rakho,  // VAR
+    Maanlo, // VAR
     Jabtak, // WHILE
     Kaam,   // FUNCTION
     Ghalat, // FALSE
@@ -287,6 +317,16 @@ impl Token {
 
 fn is_digit(ch: char) -> bool {
     ch as u8 >= '0' as u8 && ch as u8 <= '9' as u8
+}
+
+fn is_alpha(ch: char) -> bool {
+    (ch as u8 >= 'a' as u8 && ch as u8 <= 'z' as u8)
+        || (ch as u8 >= 'A' as u8 && ch as u8 <= 'Z' as u8)
+        || ch as u8 == '_' as u8
+}
+
+fn is_alpha_numeric(ch: char) -> bool {
+    is_alpha(ch) || is_digit(ch)
 }
 
 #[cfg(test)]
@@ -361,5 +401,38 @@ mod tests {
             FValue(val) => assert_eq!(*val, 0.06),
             _ => panic!("Incorrect literal type"),
         }
+    }
+
+    #[test]
+    fn test_identifier() {
+        let source = "naam = \"Ali\"; \n jamaat = 8;";
+        let mut scanner = Scanner::new(source);
+        scanner.scan_tokens().expect("failed to scan tokens");
+        assert_eq!(scanner.tokens[0].token_type, Identifier);
+        assert_eq!(scanner.tokens[1].token_type, Equal);
+        assert_eq!(scanner.tokens[2].token_type, Str);
+        assert_eq!(scanner.tokens[3].token_type, SemiColon);
+        assert_eq!(scanner.tokens[4].token_type, Identifier);
+        assert_eq!(scanner.tokens[5].token_type, Equal);
+        assert_eq!(scanner.tokens[6].token_type, Number);
+        assert_eq!(scanner.tokens[7].token_type, SemiColon);
+    }
+
+    #[test]
+    fn test_reserved_keywords() {
+        let source = "jabtak agar warna likho wapis ghalat sahi khali kaam maanlo aur";
+        let mut scanner = Scanner::new(source);
+        scanner.scan_tokens().expect("failed to scan tokens");
+        assert_eq!(scanner.tokens[0].token_type, Jabtak);
+        assert_eq!(scanner.tokens[1].token_type, Agar);
+        assert_eq!(scanner.tokens[2].token_type, Warna);
+        assert_eq!(scanner.tokens[3].token_type, Likho);
+        assert_eq!(scanner.tokens[4].token_type, Wapis);
+        assert_eq!(scanner.tokens[5].token_type, Ghalat);
+        assert_eq!(scanner.tokens[6].token_type, Sahi);
+        assert_eq!(scanner.tokens[7].token_type, Khali);
+        assert_eq!(scanner.tokens[8].token_type, Kaam);
+        assert_eq!(scanner.tokens[9].token_type, Maanlo);
+        assert_eq!(scanner.tokens[10].token_type, Aur);
     }
 }

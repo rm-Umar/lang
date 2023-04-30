@@ -39,9 +39,8 @@ fn run_file(path: &str) -> Result<(), String> {
 
 fn run(contents: &str) -> Result<(), String> {
     let mut scanner = Scanner::new(contents);
-    let tokens = scanner.scan_tokens();
-
-    while let Ok(ref token) = tokens {
+    let tokens = scanner.scan_tokens().expect("Failed to scan tokens");
+    for token in tokens {
         println!("{:?}", token);
     }
     return Ok(());
@@ -52,10 +51,7 @@ fn run_prompt() -> Result<(), String> {
         print!("> ");
         let mut buffer = String::new();
         let input = io::stdin();
-        match io::stdout().flush() {
-            Ok(_) => (),
-            Err(_) => return Err("Could not flush stdout".to_string()),
-        }
+        io::stdout().flush().expect("failed to flush");
 
         let mut handle = input.lock();
         match handle.read_line(&mut buffer) {
@@ -66,10 +62,6 @@ fn run_prompt() -> Result<(), String> {
             }
             Err(_) => return Err("Could not read line".to_string()),
         }
-        println!("{}", buffer);
-        match run(&buffer) {
-            Ok(_) => (),
-            Err(msg) => println!("ERROR: {}", msg),
-        }
+        run(&buffer)?;
     }
 }
