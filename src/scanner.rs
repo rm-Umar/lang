@@ -292,10 +292,10 @@ pub enum Object {
 
 #[derive(Debug, Clone)]
 pub struct Token {
-    token_type: TokenType,
-    lexeme: String,
-    literal: Option<Object>,
-    line_number: usize,
+    pub token_type: TokenType,
+    pub lexeme: String,
+    pub literal: Option<Object>,
+    pub line_number: usize,
 }
 
 impl Token {
